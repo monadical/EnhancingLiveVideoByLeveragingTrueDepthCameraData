@@ -159,9 +159,9 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
                     alertController.addAction(UIAlertAction(title: NSLocalizedString("Settings", comment: "Alert button to open Settings"),
                                                             style: .`default`,
                                                             handler: { _ in
-                            UIApplication.shared.open(URL(string: UIApplicationOpenSettingsURLString)!,
-                                                      options: [:],
-                                                      completionHandler: nil)
+                                                                UIApplication.shared.open(URL(string: UIApplicationOpenSettingsURLString)!,
+                                                                                          options: [:],
+                                                                                          completionHandler: nil)
                     }))
                     
                     self.present(alertController, animated: true, completion: nil)
@@ -396,8 +396,8 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
         
         if self.session.canAddOutput(metadataOutput) {
             self.session.addOutput(metadataOutput)
-            if metadataOutput.availableMetadataObjectTypes.contains(AVMetadataObject.ObjectType.face) {
-                metadataOutput.metadataObjectTypes = [AVMetadataObject.ObjectType.face]
+            if metadataOutput.availableMetadataObjectTypes.contains(.face) {
+                metadataOutput.metadataObjectTypes = [.face]
             }
         } else {
             print("Could not add face detection output to the session")
@@ -518,7 +518,7 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
     }
     
     // MARK: - Background Loading
-
+    
     @objc
     func chooseBackground(_ gesture: UISwipeGestureRecognizer) {
         imagePicker.allowsEditing = false
@@ -531,10 +531,10 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
         let size = CGSize(width: image.size.height, height: image.size.width)
         var rotationAngle: CGFloat
         var translation = CGSize(width: 0, height: 0)
-
+        
         rotationAngle = -.pi / 2
         translation.width = -size.height
-
+        
         UIGraphicsBeginImageContext(size)
         guard let cgContext = UIGraphicsGetCurrentContext() else {
             return nil
@@ -582,21 +582,21 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
         
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         guard let context = CGContext(data: nil,
-                                width: videoWidth,
-                                height: videoHeight,
-                                bitsPerComponent: 8,
-                                bytesPerRow: 0,
-                                space: colorSpace,
-                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
-            print("error")
-            return nil
+                                      width: videoWidth,
+                                      height: videoHeight,
+                                      bitsPerComponent: 8,
+                                      bytesPerRow: 0,
+                                      space: colorSpace,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+                                        print("error")
+                                        return nil
         }
-
+        
         let bounds = CGRect(origin: CGPoint(x: 0, y: 0), size: CGSize(width: videoWidth, height: videoHeight))
         context.clear(bounds)
         
         context.draw(croppedImage!, in: bounds)
-
+        
         guard let scaledImage = context.makeImage() else {
             print("failed")
             return nil
@@ -611,7 +611,7 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
         if let pickedImage = info[UIImagePickerControllerOriginalImage] as? UIImage {
             self.backgroundImage = loadBackground(image: pickedImage)
         }
-
+        
         dismiss(animated: true, completion: nil)
     }
     
@@ -642,31 +642,27 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
         guard let videoPixelBuffer = CMSampleBufferGetImageBuffer(syncedVideoData.sampleBuffer) else {
             return
         }
-        var faceCenter: CGPoint? = nil
-        guard
-            let syncedMetaData =
+        
+        // Check if there's a face in the scene. If so - use it to decide on depth cutoff
+        if let syncedMetaData: AVCaptureSynchronizedMetadataObjectData =
             synchronizedDataCollection.synchronizedData(for: metadataOutput) as? AVCaptureSynchronizedMetadataObjectData,
             let firstFace = syncedMetaData.metadataObjects.first,
             let connection = self.videoDataOutput.connection(with: AVMediaType.video),
-            let face = videoDataOutput.transformedMetadataObject(for: firstFace, connection: connection)
-        else {
-                return
-        }
-        faceCenter = .some(CGPoint(x: face.bounds.midX, y: face.bounds.midY))
+            let face = videoDataOutput.transformedMetadataObject(for: firstFace, connection: connection) {
+            let faceCenter = CGPoint(x: face.bounds.midX, y: face.bounds.midY)
 
-        // Decide on cutoff according to depth at face center
-        if let point = faceCenter {
             let scaleFactor = CGFloat(CVPixelBufferGetWidth(depthPixelBuffer)) / CGFloat(CVPixelBufferGetWidth(videoPixelBuffer))
-            let pixelX = Int((point.x * scaleFactor).rounded())
-            let pixelY = Int((point.y * scaleFactor).rounded())
-            
+            let pixelX = Int((faceCenter.x * scaleFactor).rounded())
+            let pixelY = Int((faceCenter.y * scaleFactor).rounded())
+
             CVPixelBufferLockBaseAddress(depthPixelBuffer, .readOnly)
-            
+        
             let rowData = CVPixelBufferGetBaseAddress(depthPixelBuffer)! + pixelY * CVPixelBufferGetBytesPerRow(depthPixelBuffer)
             let faceCenterDepth = rowData.assumingMemoryBound(to: Float32.self)[pixelX]
             CVPixelBufferUnlockBaseAddress(depthPixelBuffer, .readOnly)
             self.depthCutOff = faceCenterDepth + 0.25
         }
+        
         // Convert depth map in-place: every pixel above cutoff is converted to 1. otherwise it's 0
         let depthWidth = CVPixelBufferGetWidth(depthPixelBuffer)
         let depthHeight = CVPixelBufferGetHeight(depthPixelBuffer)

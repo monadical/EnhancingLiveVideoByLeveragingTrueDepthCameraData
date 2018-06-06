@@ -12,7 +12,7 @@ This sample app leverages depth data to dynamically replace the entire backgroun
 
 To see this sample app in action, build and run the project in Xcode on a device running iOS 11 or later.  Because Xcode doesn’t have access to the TrueDepth camera, this sample won't work in the Xcode simulator.
 
-The sample app begins by removing the background, replacing it with black.  Apply your own image from the camera roll by tapping anywhere on the video feed.
+The sample app begins by removing the background, replacing it with black.  Apply your own image from the camera roll by swiping down anywhere on the video feed.
 
 ### Set Up Live Capture from the TrueDepth Camera
 
@@ -90,44 +90,28 @@ Assume the foreground to be a human face.  You can accomplish face detection thr
 
 ``` swift
 self.session.addOutput(metadataOutput)
-if metadataOutput.availableMetadataObjectTypes.contains(AVMetadataObject.ObjectType.face) {
-    metadataOutput.metadataObjectTypes = [AVMetadataObject.ObjectType.face]
+if metadataOutput.availableMetadataObjectTypes.contains(.face) {
+    metadataOutput.metadataObjectTypes = [.face]
 }
 ```
 
 Using the [`AVMetadataObject`](https://developer.apple.com/documentation/avfoundation/avmetadataobject), locate the face’s bounding box and center.  Assume there is only one face and take the first one in the metadata object.
 
 ``` swift
-var faceCenter: CGPoint? = nil
-guard
-    let syncedMetaData =
+if let syncedMetaData: AVCaptureSynchronizedMetadataObjectData =
     synchronizedDataCollection.synchronizedData(for: metadataOutput) as? AVCaptureSynchronizedMetadataObjectData,
     let firstFace = syncedMetaData.metadataObjects.first,
     let connection = self.videoDataOutput.connection(with: AVMediaType.video),
-    let face = videoDataOutput.transformedMetadataObject(for: firstFace, connection: connection)
-else {
-        return
-}
+    let face = videoDataOutput.transformedMetadataObject(for: firstFace, connection: connection) {
+    let faceCenter = CGPoint(x: face.bounds.midX, y: face.bounds.midY)
 ```
 
 Depth maps differ from their normal camera image counterparts in resolution; as a result, normal image coordinates differ from depth map coordinates by a scale factor. Compute the scale factor and transform the face’s center to depth map coordinates.
 
 ``` swift
-faceCenter = .some(CGPoint(x: face.bounds.midX, y: face.bounds.midY))
-
-// Decide on cutoff according to depth at face center
-if let point = faceCenter {
-    let scaleFactor = CGFloat(CVPixelBufferGetWidth(depthPixelBuffer)) / CGFloat(CVPixelBufferGetWidth(videoPixelBuffer))
-    let pixelX = Int((point.x * scaleFactor).rounded())
-    let pixelY = Int((point.y * scaleFactor).rounded())
-    
-    CVPixelBufferLockBaseAddress(depthPixelBuffer, .readOnly)
-    
-    let rowData = CVPixelBufferGetBaseAddress(depthPixelBuffer)! + pixelY * CVPixelBufferGetBytesPerRow(depthPixelBuffer)
-    let faceCenterDepth = rowData.assumingMemoryBound(to: Float32.self)[pixelX]
-    CVPixelBufferUnlockBaseAddress(depthPixelBuffer, .readOnly)
-    self.depthCutOff = faceCenterDepth + 0.25
-}
+let scaleFactor = CGFloat(CVPixelBufferGetWidth(depthPixelBuffer)) / CGFloat(CVPixelBufferGetWidth(videoPixelBuffer))
+let pixelX = Int((faceCenter.x * scaleFactor).rounded())
+let pixelY = Int((faceCenter.y * scaleFactor).rounded())
 ```
 
 Once you have the face in depth map coordinates, threshold the image to create a binary mask image, where the foreground pixels are `1`, and the background pixels are `0`.
