@@ -159,7 +159,7 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
                     alertController.addAction(UIAlertAction(title: NSLocalizedString("Settings", comment: "Alert button to open Settings"),
                                                             style: .`default`,
                                                             handler: { _ in
-                                                                UIApplication.shared.open(URL(string: UIApplicationOpenSettingsURLString)!,
+                                                                UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!,
                                                                                           options: [:],
                                                                                           completionHandler: nil)
                     }))
@@ -239,9 +239,9 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
     
     private func addObservers() {
         NotificationCenter.default.addObserver(self, selector: #selector(didEnterBackground),
-                                               name: NSNotification.Name.UIApplicationDidEnterBackground, object: nil)
+                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(willEnterForground),
-                                               name: NSNotification.Name.UIApplicationWillEnterForeground, object: nil)
+                                               name: UIApplication.willEnterForegroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(sessionRuntimeError),
                                                name: NSNotification.Name.AVCaptureSessionRuntimeError, object: session)
         
@@ -607,11 +607,11 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
     
     // MARK: - Image Picker Delegate
     
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [String: Any]) {
-        if let pickedImage = info[UIImagePickerControllerOriginalImage] as? UIImage {
+    func imagePickerController(_ picker: UIImagePickerController,
+                               didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+        if let pickedImage = info[.originalImage] as? UIImage {
             self.backgroundImage = loadBackground(image: pickedImage)
         }
-        
         dismiss(animated: true, completion: nil)
     }
     
@@ -650,13 +650,13 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
             let connection = self.videoDataOutput.connection(with: AVMediaType.video),
             let face = videoDataOutput.transformedMetadataObject(for: firstFace, connection: connection) {
             let faceCenter = CGPoint(x: face.bounds.midX, y: face.bounds.midY)
-
+            
             let scaleFactor = CGFloat(CVPixelBufferGetWidth(depthPixelBuffer)) / CGFloat(CVPixelBufferGetWidth(videoPixelBuffer))
             let pixelX = Int((faceCenter.x * scaleFactor).rounded())
             let pixelY = Int((faceCenter.y * scaleFactor).rounded())
-
+            
             CVPixelBufferLockBaseAddress(depthPixelBuffer, .readOnly)
-        
+            
             let rowData = CVPixelBufferGetBaseAddress(depthPixelBuffer)! + pixelY * CVPixelBufferGetBytesPerRow(depthPixelBuffer)
             let faceCenterDepth = rowData.assumingMemoryBound(to: Float32.self)[pixelX]
             CVPixelBufferUnlockBaseAddress(depthPixelBuffer, .readOnly)
@@ -793,6 +793,8 @@ extension PreviewMetalView.Rotation {
                 
             default: return nil
             }
+        @unknown default:
+            fatalError("Unknown orientation.")
         }
     }
 }

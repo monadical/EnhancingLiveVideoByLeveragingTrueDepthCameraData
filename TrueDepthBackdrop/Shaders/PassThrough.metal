@@ -17,9 +17,9 @@ struct VertexIO
 };
 
 // Vertex shader for a textured quad
-vertex VertexIO vertexPassThrough(device packed_float4 *pPosition  [[ buffer(0) ]],
-                                  device packed_float2 *pTexCoords [[ buffer(1) ]],
-                                  uint                  vid        [[ vertex_id ]])
+vertex VertexIO vertexPassThrough(const device packed_float4 *pPosition  [[ buffer(0) ]],
+                                  const device packed_float2 *pTexCoords [[ buffer(1) ]],
+                                        uint                  vid        [[ vertex_id ]])
 {
     VertexIO outVertex;
     

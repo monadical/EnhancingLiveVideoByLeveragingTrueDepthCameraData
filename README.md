@@ -6,17 +6,17 @@ Apply your own background to a live capture feed streamed from the front-facing 
 
 The TrueDepth camera provides real-time depth data that allows you to segment foreground from background in a video feed.
 
-This sample app leverages depth data to dynamically replace the entire background with a custom image.  It then performs Gaussian filtering and other image processing operations to remove holes and smooth the effect.
+This sample app leverages depth data to dynamically replace the entire background with a custom image. It then performs Gaussian filtering and other image processing operations to remove holes and smooth the effect.
 
 ## Preview the Sample App
 
-To see this sample app in action, build and run the project in Xcode on a device running iOS 11 or later.  Because Xcode doesn’t have access to the TrueDepth camera, this sample won't work in the Xcode simulator.
+To see this sample app in action, build and run the project in Xcode on a device running iOS 11 or later. Because Xcode doesn’t have access to the TrueDepth camera, this sample won't work in the Xcode simulator.
 
-The sample app begins by removing the background, replacing it with black.  Apply your own image from the camera roll by swiping down anywhere on the video feed.
+The sample app begins by removing the background, replacing it with black. Apply your own image from the camera roll by swiping down anywhere on the video feed.
 
 ### Set Up Live Capture from the TrueDepth Camera
 
-Set up an [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession) on a separate thread via the session queue.  Initialize this session queue before configuring the camera for capture.
+Set up an [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession) on a separate thread via the session queue. Initialize this session queue before configuring the camera for capture.
 
 ``` swift
 // Communicate with the session and other session objects on this queue.
@@ -31,7 +31,7 @@ sessionQueue.async {
 }
 ```
 
-Setting up the camera for video capture follows many of the same steps as normal video capture.  See [Setting Up a Capture Session](https://developer.apple.com/documentation/avfoundation/cameras_and_media_capture/setting_up_a_capture_session) for details on configuring streaming setup.
+Setting up the camera for video capture follows many of the same steps as normal video capture. See [Setting Up a Capture Session](https://developer.apple.com/documentation/avfoundation/cameras_and_media_capture/setting_up_a_capture_session) for details on configuring streaming setup.
 
 On top of normal setup, request depth data by declaring a separate output:
 
@@ -77,7 +77,7 @@ let selectedFormat = depth32formats.max(by: { first, second in
         CMVideoFormatDescriptionGetDimensions(second.formatDescription).width })
 ```
 
-Synchronize the normal RGB video data with depth data output.  The first output in the dataOutputs array is the master output.
+Synchronize the normal RGB video data with depth data output. The first output in the dataOutputs array is the master output.
 
 ``` swift
 outputSynchronizer = AVCaptureDataOutputSynchronizer(dataOutputs: [videoDataOutput, depthDataOutput, metadataOutput])
@@ -86,7 +86,7 @@ outputSynchronizer!.setDelegate(self, queue: dataOutputQueue)
 
 ## Create a Binary Foreground Mask
 
-Assume the foreground to be a human face.  You can accomplish face detection through the Vision framework’s [`VNDetectFaceRectanglesRequest`](https://developer.apple.com/documentation/vision/vndetectfacerectanglesrequest), but this sample doesn’t need anything else from Vision, so it’s simpler to consult the [`AVMetadataObject`](https://developer.apple.com/documentation/avfoundation/avmetadataobject) for [`ObjectType.face`](https://developer.apple.com/documentation/avfoundation/avmetadataobject/objecttype/1385845-face).  
+Assume the foreground to be a human face. You can accomplish face detection through the Vision framework’s [`VNDetectFaceRectanglesRequest`](https://developer.apple.com/documentation/vision/vndetectfacerectanglesrequest), but this sample doesn’t need anything else from Vision, so it’s simpler to consult the [`AVMetadataObject`](https://developer.apple.com/documentation/avfoundation/avmetadataobject) for [`ObjectType.face`](https://developer.apple.com/documentation/avfoundation/avmetadataobject/objecttype/1385845-face). 
 
 ``` swift
 self.session.addOutput(metadataOutput)
@@ -95,7 +95,7 @@ if metadataOutput.availableMetadataObjectTypes.contains(.face) {
 }
 ```
 
-Using the [`AVMetadataObject`](https://developer.apple.com/documentation/avfoundation/avmetadataobject), locate the face’s bounding box and center.  Assume there is only one face and take the first one in the metadata object.
+Using the [`AVMetadataObject`](https://developer.apple.com/documentation/avfoundation/avmetadataobject), locate the face’s bounding box and center. Assume there is only one face and take the first one in the metadata object.
 
 ``` swift
 if let syncedMetaData: AVCaptureSynchronizedMetadataObjectData =
@@ -137,7 +137,7 @@ for yMap in 0 ..< depthHeight {
 
 ## Smooth the Depth Mask with Core Image Filters
 
-The depth map doesn’t share the RGB image’s sharp resolution, so the mask may contain holes along the interface between foreground and background.  Once you have a downsampled mask image, use a Gaussian filter to smooth out the holes, so the interface doesn’t look jagged or pixelated. Clamp your image before filtering it, and crop it afterward, so it retains the proper size when applied with the original image.
+The depth map doesn’t share the RGB image’s sharp resolution, so the mask may contain holes along the interface between foreground and background. Once you have a downsampled mask image, use a Gaussian filter to smooth out the holes, so the interface doesn’t look jagged or pixelated. Clamp your image before filtering it, and crop it afterward, so it retains the proper size when applied with the original image.
 
 ``` swift
 let depthMaskImage = CIImage(cvPixelBuffer: depthPixelBuffer, options: [:])
@@ -151,15 +151,15 @@ let alphaMatte = depthMaskImage.clampedToExtent()
     .applyingFilter("CIBicubicScaleTransform", parameters: ["inputScale": alphaUpscaleFactor])
 ```
 
-The parameters of your `CIGaussianBlur` and `CIGammaAdjust` filters directly affect the smoothness of the edge pixels.  You can tune the blur and smoothness by adjusting the Gaussian blur filter’s input radius, as well as the gamma adjustment filter’s input power.
+The parameters of your `CIGaussianBlur` and `CIGammaAdjust` filters directly affect the smoothness of the edge pixels. You can tune the blur and smoothness by adjusting the Gaussian blur filter’s input radius, as well as the gamma adjustment filter’s input power.
 
-![Graph showing the effect of fine-tuning Gaussian blur and Gamma adjustment](Documentation/GaussianGammaGraph.png)
+![Graph showing the effect of fine-tuning Gaussian blur and Gamma adjustment](Documentation/graph.png)
 
 ## Blend Foreground and Background with the Alpha Matte
 
 The final step is applying your filtered smooth binary mask to the input video frame.
 
-Because you've performed image processing in Core Image using the `CIGaussianBlur` and `CIGammaAdjust` filters, it's most computationally efficient to apply the resulting mask in Core Image, as well.  That means converting your video from [`CVPixelBuffer`](https://developer.apple.com/documentation/corevideo/cvpixelbuffer-q2e) format to [`CIImage`](https://developer.apple.com/documentation/coreimage/ciimage) format, allowing you to apply the alpha matte to the original image, and blend in your custom background image with the `CIBlendWithMask` filter.
+Because you've performed image processing in Core Image using the `CIGaussianBlur` and `CIGammaAdjust` filters, it's most computationally efficient to apply the resulting mask in Core Image, as well. That means converting your video from [`CVPixelBuffer`](https://developer.apple.com/documentation/corevideo/cvpixelbuffer-q2e) format to [`CIImage`](https://developer.apple.com/documentation/coreimage/ciimage) format, allowing you to apply the alpha matte to the original image, and blend in your custom background image with the `CIBlendWithMask` filter.
 
 ``` swift
 let image = CIImage(cvPixelBuffer: videoPixelBuffer)
