@@ -216,8 +216,7 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
     override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
         
-        coordinator.animate(
-            alongsideTransition: { _ in
+        coordinator.animate(alongsideTransition: { _ in
                 let interfaceOrientation = UIApplication.shared.statusBarOrientation
                 self.statusBarOrientation = interfaceOrientation
                 self.sessionQueue.async {
@@ -231,8 +230,7 @@ class CameraViewController: UIViewController, AVCaptureDataOutputSynchronizerDel
                         self.previewView.rotation = rotation
                     }
                 }
-        }, completion: nil
-        )
+        }, completion: nil)
     }
     
     // MARK: - KVO and Notifications

@@ -14,7 +14,7 @@ To see this sample app in action, build and run the project in Xcode on a device
 
 The sample app begins by removing the background, replacing it with black. Apply your own image from the camera roll by swiping down anywhere on the video feed.
 
-### Set Up Live Capture from the TrueDepth Camera
+## Set Up Live Capture from the TrueDepth Camera
 
 Set up an [`AVCaptureSession`](https://developer.apple.com/documentation/avfoundation/avcapturesession) on a separate thread via the session queue. Initialize this session queue before configuring the camera for capture.
 
